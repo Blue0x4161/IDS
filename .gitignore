@@ -1,0 +1,12 @@
+# Ignore specific files
+save_flows.py
+read_pcap.py
+read_flows.py
+live.py
+integrating_IPs.py
+check_blocklist.py
+test.txt
+
+# Ignore entire folder
+data/
+
