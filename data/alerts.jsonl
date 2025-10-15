@@ -1,0 +1,3 @@
+{"src_ip": "145.254.160.237", "dst_ip": "65.208.228.223", "protocol": "TCP", "score": 70, "reasons": ["Source IP in blocklist"]}
+{"src_ip": "145.254.160.237", "dst_ip": "145.253.2.203", "protocol": "UDP", "score": 70, "reasons": ["Source IP in blocklist"]}
+{"src_ip": "145.254.160.237", "dst_ip": "216.239.59.99", "protocol": "TCP", "score": 70, "reasons": ["Source IP in blocklist"]}

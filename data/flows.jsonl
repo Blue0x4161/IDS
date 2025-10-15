@@ -1,0 +1,6 @@
+{"src_ip": "145.254.160.237", "dst_ip": "65.208.228.223", "src_port": 3372, "dst_port": 80, "protocol": "TCP", "packet_count": 16}
+{"src_ip": "65.208.228.223", "dst_ip": "145.254.160.237", "src_port": 80, "dst_port": 3372, "protocol": "TCP", "packet_count": 18}
+{"src_ip": "145.254.160.237", "dst_ip": "145.253.2.203", "src_port": 3009, "dst_port": 53, "protocol": "UDP", "packet_count": 1}
+{"src_ip": "145.253.2.203", "dst_ip": "145.254.160.237", "src_port": 53, "dst_port": 3009, "protocol": "UDP", "packet_count": 1}
+{"src_ip": "145.254.160.237", "dst_ip": "216.239.59.99", "src_port": 3371, "dst_port": 80, "protocol": "TCP", "packet_count": 3}
+{"src_ip": "216.239.59.99", "dst_ip": "145.254.160.237", "src_port": 80, "dst_port": 3371, "protocol": "TCP", "packet_count": 4}
