@@ -12,6 +12,9 @@ class packet_capture:
 
     def packet_callback(self, packet):
         if IP in packet:
+            src_ip = packet[IP].src
+            dst_ip = packet[IP].dst
+            packet_src_dst = {"src_ip": src_ip, "dst_ip": dst_ip}
             try:
                 self.packet_queue.put(packet, timeout=0.1)
             except queue.Full:
@@ -20,7 +23,20 @@ class packet_capture:
     
     def start_capture(self, interface="eth0"):
         def capture_thread():
-            sniff(iface=interface, prn=self.packet_callback, store=0, stop_filter=lambda _: self.stop_capture.is_set())
+            try:
+                sniff(
+                    iface=interface,
+                    filter="ip",
+                    prn=self.packet_callback,
+                    store=0,
+                    stop_filter=lambda _: self.stop_capture.is_set()
+                    )
+            except PermissionError:
+                print("[!] Permission denied! Run with sudo.")
+            except KeyboardInterrupt:
+                print("\n[!] Capture stopped by user.")
+            except Exception as e:
+                print(f"[!] Sniffing error: {e}")
             #lambda is a one line function to use instead opf keep writing functions. this _ means ignore this value which is the arguements. here we check if stop_capture is false or true should we keep capturing or should we stop capturing.
 
 
