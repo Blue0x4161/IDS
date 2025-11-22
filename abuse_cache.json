@@ -1,0 +1,66 @@
+{
+    "45.33.32.156": {
+        "malicious": false,
+        "last_alert": 0,
+        "source": null
+    },
+    "8.8.8.8": {
+        "malicious": false,
+        "last_alert": 1763824608.0023296
+    },
+    "223.228.132.48": {
+        "malicious": true,
+        "last_alert": 1690000000,
+        "source": "LOCAL_IOC"
+    },
+    "1.2.3.4": {
+        "malicious": true,
+        "last_alert": 1763824195.0862474,
+        "source": "LOCAL_IOC"
+    },
+    "185.199.108.133": {
+        "malicious": false,
+        "last_alert": 1763827431.1422234
+    },
+    "192.168.100.1": {
+        "malicious": false,
+        "last_alert": 1763829571.8448367,
+        "score": 0
+    },
+    "104.26.13.38": {
+        "malicious": false,
+        "last_alert": 1763829577.40144
+    },
+    "172.67.70.74": {
+        "malicious": false,
+        "last_alert": 1763829573.076624,
+        "score": 0
+    },
+    "104.26.12.38": {
+        "malicious": false,
+        "last_alert": 1763829562.0663173,
+        "score": 0
+    },
+    "192.168.100.21": {
+        "malicious": false,
+        "last_alert": 1763826537.8880067,
+        "score": 0
+    },
+    "185.199.110.133": {
+        "malicious": true,
+        "last_alert": 1763829487.8138206,
+        "score": 0,
+        "source": "LOCAL_IOC"
+    },
+    "176.28.184.204": {
+        "malicious": false,
+        "last_alert": 1763829501.6732526,
+        "score": 0
+    },
+    "185.199.109.133": {
+        "malicious": true,
+        "last_alert": 1763829516.3197956,
+        "source": "LOCAL_IOC",
+        "score": 0
+    }
+}
