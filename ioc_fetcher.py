@@ -28,7 +28,6 @@ class ioc_fetcher:
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
-            
 
             ips = set()
             for line in response.text.splitlines():
@@ -41,11 +40,9 @@ class ioc_fetcher:
 
     @staticmethod
     def combine_ioc_sets():
-        print("sewing the two sets together be patenit!")
         ipsum_ips = ioc_fetcher.fetch_ipsum()
         bitwire_ips = ioc_fetcher.fetch_bitwire()
         combined = ipsum_ips.union(bitwire_ips)
-        print(f"Loaded {len(combined)} malicious IPs from IOC feeds")
         return combined
 
 
