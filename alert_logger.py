@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 # Define the file path for the alerts log
 ALERT_FILE_PATH = "ids_alerts.json"
 
-# --- NEW: Alert De-duplication Cache and Configuration ---
+# Alert De-duplication Cache and Configuration
 # In-memory cache to store the last timestamp an alert key was logged.
 _ALERT_COOLDOWN_CACHE: Dict[str, float] = {}
 # Time (in seconds) to suppress identical alerts
@@ -31,7 +31,7 @@ def _create_alert_key(alert_data: Dict[str, Any]) -> str:
     # Use hashing for a compact, consistent key
     return str(hash(key_fields))
 
-# --------------------------------------------------------
+############################################################################################3
 
 def load_alerts() -> List[Dict[str, Any]]:
     """
@@ -63,7 +63,7 @@ def log_alert(alert_data: Dict[str, Any]):
     Public function to append a new structured alert to the log file,
     after applying de-duplication logic.
     """
-    # We need 'global' here because we are modifying module-level variables inside a function
+    
     global _ALERT_COOLDOWN_CACHE, ALERT_COOLDOWN_SECONDS
     now = time.time()
     
@@ -74,13 +74,13 @@ def log_alert(alert_data: Dict[str, Any]):
     last_alert_time = _ALERT_COOLDOWN_CACHE.get(alert_key, 0)
     
     if (now - last_alert_time) < ALERT_COOLDOWN_SECONDS:
-        # Alert is within the cooldown period, suppress logging to file
+        # Alert is within the cooldown period suppress logging to file
         return 
         
     # 3. Update the cache with the new time (only if we are about to log it)
     _ALERT_COOLDOWN_CACHE[alert_key] = now
     
-    # 4. If outside the cooldown, proceed with logging
+    # 4. If outside the cooldown proceed with logging
     alerts = load_alerts()
     alerts.append(alert_data)
     save_alerts(alerts)
