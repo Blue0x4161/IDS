@@ -1,6 +1,6 @@
 import requests
 
-
+#This is used to fetch the bad ips from these two lists i found on github
 class ioc_fetcher:
 
     @staticmethod
