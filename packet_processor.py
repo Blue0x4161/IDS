@@ -16,9 +16,9 @@ from loaders import (
     load_high_risk_ports
 )
 
-# API Rate Limiting Configuration (using snake_case)
-abuseipdb_rate_limit = 1000  # The allowed limit
-abuseipdb_request_count = 1000  # Global counter for requests made
+#to limit the api requests
+abuseipdb_rate_limit = 1000  
+abuseipdb_request_count = 0  
 abuseipdb_limit_reached_printed = False # Flag to print the warning only once
 
 
@@ -33,7 +33,7 @@ high_risk_ports = load_high_risk_ports(config_path)
 
 
 
-# Default structure for new cache entries
+
 DEFAULT_CACHE_ENTRY = {
     "malicious": False,
     "last_alert": 0,
@@ -61,7 +61,7 @@ def get_direction(src_ip, my_ip):
 
 def load_cache(path="abuse_cache.json"):
     if not os.path.exists(path):
-        return {}  # return empty cache if file does not exist
+        return {}  
 
     with open(path, "r") as f:
         return json.load(f)
