@@ -7,7 +7,6 @@ import ioc_manager
 import packet_capture
 import packet_processor
 
-
 def main():
     manager = ioc_manager.ioc_manager()
     print(f"Initial load done: {len(manager.malicious_ips['ips'])} IPs loaded")
