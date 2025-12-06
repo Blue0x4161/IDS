@@ -114,7 +114,7 @@ def determine_connection_state(
         is_fin_set: bool = False,
         is_rst_set: bool = False
 ) -> ConnectionState:
-    """Determines the simplified TCP connection state based on header flags."""
+
     if is_rst_set or is_fin_set:
         return "FINISHING"
     if is_syn_set and not is_ack_set:
@@ -127,9 +127,7 @@ def determine_connection_state(
 
 
 def process_packet(pkt, malicious_ips):
-    """
-    The main function that orchestrates all security checks for a single packet.
-    """
+    
 
     packet_score = 0
     packet_reasons = []
@@ -188,7 +186,6 @@ def process_packet(pkt, malicious_ips):
             "source_ip": src_ip,
             "destination_ip": dst_ip,
             "protected_device_ip": my_ip,
-            # "protocol": protocol,
             # Use '?' if ports were not determined (e.g., ICMP/Other)
             "source_port": src_port if src_port is not None else '?',
             "destination_port": dst_port if dst_port is not None else '?',
@@ -233,13 +230,13 @@ alert_window = 600  # 10 minutes in seconds
 load_dotenv("api.env")  # loading environment variables from .env file
 
 
-#
+
 
 def check_ip_reputation(
         ip_to_check: str,
         malicious_ips
 ) -> tuple[int, list[str]]:
-    """Analyzes IP reputation using cache, local blacklist, and external API (mocked)."""
+
     score = 0
     reasons = []
     now = time.time()
@@ -282,7 +279,6 @@ def check_ports_inbound(
         src_port: int,
         connection_state: ConnectionState
 ) -> tuple[int, list[str]]:
-    """Analyzes INBOUND traffic using a simplified ICS Whitelist and Blacklists."""
     score = 0
     reasons = []
 
@@ -315,7 +311,7 @@ def check_ports_outbound(
         src_port: int,
         #connection_state: ConnectionState       #I might need it later who knows?
 ) -> tuple[int, list[str]]:
-    """Analyzes OUTBOUND traffic for C2 and Privilege Abuse."""
+    
     score = 0
     reasons = []
 
@@ -391,7 +387,7 @@ def query_abuseipdb(ip):
 
 ###############################################################################
 def check_ip_in_whitelist(src_ip: str, dst_port: int) -> bool:
-    """SIMPLE CHECK: Checks if a source IP is explicitly authorized for the specific ICS port."""
+    
     if dst_port in ics_port_whitelist:
         return src_ip in ics_port_whitelist[dst_port]
     return False
