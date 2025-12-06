@@ -1,9 +1,8 @@
+
 import json
 import os
-import time
 
-
-cache_file="abuse_cache.json"
+cache_file = "abuse_cache.json"
 
 
 def load_cache():
@@ -41,4 +40,4 @@ def save_cache(cache):
 
 
 abuse_cache = load_cache()
-alerted_ips = set() #Tracks which IPs were already alerted
+alerted_ips = set()  # Tracks which IPs were already alerted
