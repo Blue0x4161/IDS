@@ -1,13 +1,16 @@
-import socket
-import os
-import time
-import requests
+
 import json
-import alert_logger
-from scapy.all import IP, TCP, UDP
+import os
+import socket
+import time
 from typing import Literal
-from cache_manager import abuse_cache, save_cache, alerted_ips
+
+import requests
 from dotenv import load_dotenv
+from scapy.all import IP, TCP, UDP
+
+import alert_logger
+from cache_manager import abuse_cache, save_cache
 from loaders import (
     load_ics_port_whitelist,
     load_inbound_src_spoofing,
@@ -16,23 +19,19 @@ from loaders import (
     load_high_risk_ports
 )
 
-#to limit the api requests
-abuseipdb_rate_limit = 1000  
-abuseipdb_request_count = 0  
-abuseipdb_limit_reached_printed = False # Flag to print the warning only once
-
+# to limit the api requests
+abuseipdb_rate_limit = 1000
+abuseipdb_request_count = 999
+abuseipdb_limit_reached_printed = False  # Flag to print the warning only once
 
 alert_threshold = 1
 config_path = "config/ioc_rules.json"
-#I NEED TO FIX THESE FUNCTIONS NAMES!!!
+
 ics_port_whitelist = load_ics_port_whitelist(config_path)
 inbound_spoofing = load_inbound_src_spoofing(config_path)
 outbound_blacklist = load_outbound_dst_blacklist(config_path)
 outbound_priv_abuse = load_outbound_src_privilege_abuse(config_path)
 high_risk_ports = load_high_risk_ports(config_path)
-
-
-
 
 DEFAULT_CACHE_ENTRY = {
     "malicious": False,
@@ -40,8 +39,9 @@ DEFAULT_CACHE_ENTRY = {
     "source": None
 }
 
-#########################################################################
-#To get the IP address
+
+
+# To get the IP address
 def get_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -50,28 +50,21 @@ def get_ipv4():
     finally:
         s.close()
 
-#To get direction
+
+# To get direction
 def get_direction(src_ip, my_ip):
     return "OUTBOUND" if src_ip == my_ip else "INBOUND"
 
 
 
 
-#######
-
 def load_cache(path="abuse_cache.json"):
     if not os.path.exists(path):
-        return {}  
+        return {}
 
     with open(path, "r") as f:
         return json.load(f)
 
-
-abuse_cache = load_cache()
-
-
-
-########
 
 
 
@@ -81,48 +74,45 @@ def extract_features(pkt):
     src_ip = pkt[IP].src
     dst_ip = pkt[IP].dst
 
-   
     # Use -1 as the value for ports to indicate "No Transport Layer"
     src_port = -1
     dst_port = -1
     connection_state: ConnectionState = "UNKNOWN"
-    #print("I'm in extract")
+    # print("I'm in extract")
 
     if TCP in pkt:
-        #print("hmmm is there tcp?")
+        # print("hmmm is there tcp?")
         tcp_layer = pkt[TCP]
         src_port = tcp_layer.sport
         dst_port = tcp_layer.dport
         flags = tcp_layer.flags
 
-
         connection_state = determine_connection_state(
-            is_syn_set = bool(flags & 0x02),
-            is_ack_set = bool(flags & 0x10),
-            is_fin_set = bool(flags & 0x01),
-            is_rst_set = bool(flags & 0x04)
+            is_syn_set=bool(flags & 0x02),
+            is_ack_set=bool(flags & 0x10),
+            is_fin_set=bool(flags & 0x01),
+            is_rst_set=bool(flags & 0x04)
         )
     elif UDP in pkt:
-        #print("hmmm is there udp?")
+        # print("hmmm is there udp?")
         udp_layer = pkt[UDP]
         src_port = udp_layer.sport
         dst_port = udp_layer.dport
-        # connection_state remains UNKNOWN for connectionless UDP
+        # connection_state remains UNKNOWN for UDP
 
-#Return the extracted feature tuple
+    # Return the extracted feature tuple
     return src_ip, dst_ip, src_port, dst_port, connection_state
 
 
-#src_ip, dst_ip, src_port, dst_port, connection_state = extract_features(pkt)
+# src_ip, dst_ip, src_port, dst_port, connection_state = extract_features(pkt)
 ConnectionState = Literal["NEW", "ESTABLISHED", "FINISHING", "UNKNOWN"]
 
 
-
 def determine_connection_state(
-    is_syn_set: bool,
-    is_ack_set: bool,
-    is_fin_set: bool = False,
-    is_rst_set: bool = False
+        is_syn_set: bool,
+        is_ack_set: bool,
+        is_fin_set: bool = False,
+        is_rst_set: bool = False
 ) -> ConnectionState:
     """Determines the simplified TCP connection state based on header flags."""
     if is_rst_set or is_fin_set:
@@ -133,57 +123,64 @@ def determine_connection_state(
         return "ESTABLISHED"
     return "UNKNOWN"
 
-#############################################################################
+
+
 
 def process_packet(pkt, malicious_ips):
     """
     The main function that orchestrates all security checks for a single packet.
     """
-    global abuse_cache 
+
     packet_score = 0
     packet_reasons = []
-    #print("I'm in process packet")
+    # print("I'm in process packet")
     # 1. Extract features
     src_ip, dst_ip, src_port, dst_port, connection_state = extract_features(pkt)
-    
+
     if src_ip == "0.0.0.0":
-        return
+        return {
+            "score": 0,
+            "reasons": [],
+            "src_ip": None,
+            "dst_ip": None,
+            "src_port": None,
+            "dst_port": None,
+            "state": "UNKNOWN",
+            "direction": "UNKNOWN"
+        }
 
     my_ip = get_ipv4()
-    
+
     direction = get_direction(src_ip, my_ip)
-    
 
     # 2. IP Reputation Check (Source for INBOUND, Destination for OUTBOUND)
-    # This logic ensures that 'my_ip' is never the subject of the reputation check.
+    # this logic ensures that 'my_ip' is never the subject of the reputation check.
     ip_to_check = src_ip if direction == "INBOUND" else dst_ip
 
-
-    
     ip_score, ip_reasons = check_ip_reputation(ip_to_check, malicious_ips["ips"])
     packet_score += ip_score
     packet_reasons.extend(ip_reasons)
 
-    # 3. Port/Policy Checks (only if a transport layer exists)
+    # 3. Port Checks (only if a transport layer exists)
     if src_port != -1:
         port_score = 0
         port_reasons = []
-        
+
         if direction == "INBOUND":
             port_score, port_reasons = check_ports_inbound(src_ip, dst_port, src_port, connection_state)
-            
+
         elif direction == "OUTBOUND":
-            port_score, port_reasons = check_ports_outbound(dst_ip, dst_port, src_port, connection_state)
-            
+            port_score, port_reasons = check_ports_outbound(dst_ip, dst_port, src_port)
+
         packet_score += port_score
         packet_reasons.extend(port_reasons)
-    
-    # Update cache score 
+
+    # Update cache score
     cache_entry = abuse_cache.setdefault(ip_to_check, dict(DEFAULT_CACHE_ENTRY))
     cache_entry["score"] = packet_score
 
     # ---- ALERT ----
-    if packet_score>= alert_threshold and packet_reasons:
+    if packet_score >= alert_threshold and packet_reasons:
         alert_data = {
             "timestamp": time.time(),
             "score": packet_score,
@@ -191,32 +188,33 @@ def process_packet(pkt, malicious_ips):
             "source_ip": src_ip,
             "destination_ip": dst_ip,
             "protected_device_ip": my_ip,
-            #"protocol": protocol,
+            # "protocol": protocol,
             # Use '?' if ports were not determined (e.g., ICMP/Other)
-            "source_port": src_port if src_port is not None else '?', 
+            "source_port": src_port if src_port is not None else '?',
             "destination_port": dst_port if dst_port is not None else '?',
             "connection_state": connection_state,
             "reasons": packet_reasons
         }
-        
+
         # Log the structured alert to the JSON file
         alert_logger.log_alert(alert_data)
         # ------------------------------------------------------------
     if packet_score >= alert_threshold and packet_reasons:
-        print("\n==================== IDS ALERT ====================")
+        print("\n=========================================== IDS ALERT ==========================================")
         print(f"Score reached: {packet_score}")
         print(f"Protected Device: {my_ip}")
-        
+
         display_src_port = src_port if src_port != -1 else 'N/A'
         display_dst_port = dst_port if dst_port != -1 else 'N/A'
-        
-        print(f"Flow: {src_ip}:{display_src_port} -> {dst_ip}:{display_dst_port} | State: {connection_state} | Direction: {direction}")
+
+        print(
+            f"Flow: {src_ip}:{display_src_port} -> {dst_ip}:{display_dst_port} | State: {connection_state} | Direction: {direction}")
         print("Reasons:")
         for r in packet_reasons:
             print(" •", r)
-        print("===================================================\n")
+        print("===============================================================================================\n")
 
-# the return is not neccessary but using it to test this function and i hope it works cuz i'm tiiiiiiiiiredddddddd i want to sleeeeeeeeeep
+    # the return is not neccessary but using it to test this function and i hope it works cuz i'm tired and i want to sleeeeeeeeeep
     return {
         "score": packet_score,
         "reasons": packet_reasons,
@@ -227,15 +225,19 @@ def process_packet(pkt, malicious_ips):
         "state": connection_state,
         "direction": direction
     }
-##################################IP_CHECK######################################################################################################################
 
-alert_window= 600  # 10 minutes in seconds
-load_dotenv("api.env") #loading environment variables from .env file
+
+##################################IP_CHECK##############################################################################
+
+alert_window = 600  # 10 minutes in seconds
+load_dotenv("api.env")  # loading environment variables from .env file
+
+
 #
 
 def check_ip_reputation(
-    ip_to_check: str,  
-    malicious_ips
+        ip_to_check: str,
+        malicious_ips
 ) -> tuple[int, list[str]]:
     """Analyzes IP reputation using cache, local blacklist, and external API (mocked)."""
     score = 0
@@ -272,12 +274,13 @@ def check_ip_reputation(
     cache_entry["malicious"] = False
     return score, reasons
 
-###############################################################################################################PORT_CHECKING####################################
+
+###################################################PORT_CHECKING####################################
 def check_ports_inbound(
-    src_ip: str, 
-    dst_port: int, 
-    src_port: int, 
-    connection_state: ConnectionState 
+        src_ip: str,
+        dst_port: int,
+        src_port: int,
+        connection_state: ConnectionState
 ) -> tuple[int, list[str]]:
     """Analyzes INBOUND traffic using a simplified ICS Whitelist and Blacklists."""
     score = 0
@@ -286,31 +289,31 @@ def check_ports_inbound(
     # 1. CRITICAL ICS Whitelist (Unauthorized Access)
     if dst_port in ics_port_whitelist:
         if not check_ip_in_whitelist(src_ip, dst_port):
-            score += 100 # Highest score - ICS breach
+            score += 100  # Highest score - ICS breach
             reasons.append(f"[!!!] CRITICAL: Unauthorized access on ICS port {dst_port} from {src_ip}.")
-            return score, reasons 
+            return score, reasons
         reasons.append(f"[CLEAN] ICS Whitelist Match: Authorized traffic on port {dst_port}.")
         return score, reasons
 
     # 2. Destination Port Blacklist (Exploitation/Backdoors)
     if dst_port in high_risk_ports:
         score += 50
-        reasons.append(f"[!!!] High-Risk Destination Port: {dst_port} → {high_risk_ports[dst_port]}")
+        reasons.append(f"[!!!] High-Risk Destination Port: {dst_port} → {high_risk_ports[dst_port]} from {src_ip}. ")
 
     # 3. Source Port Spoofing (State Aware)
     # Only flag this if it's a NEW connection attempt (i.e., not a legitimate reply)
     if src_port in inbound_spoofing and connection_state == 'NEW':
         score += 40
         reasons.append(f"[!!!] Spoofing Attempt: Unsolicited traffic from privileged source port {src_port}.")
-    
+
     return score, reasons
 
 
 def check_ports_outbound(
-    dst_ip: str, 
-    dst_port: int, 
-    src_port: int, 
-    connection_state: ConnectionState 
+        dst_ip: str,
+        dst_port: int,
+        src_port: int,
+        #connection_state: ConnectionState       #I might need it later who knows?
 ) -> tuple[int, list[str]]:
     """Analyzes OUTBOUND traffic for C2 and Privilege Abuse."""
     score = 0
@@ -318,38 +321,38 @@ def check_ports_outbound(
 
     # 1. Destination Blacklist Check (C2 Detection)
     if dst_port in outbound_blacklist:
-        score += 70 # High score for C2
-        reasons.append(f"[!!!] CRITICAL: Attempt to connect to Blacklisted C2 Port {dst_port}.")
+        score += 70  # High score for C2
+        reasons.append(f"[!!!] CRITICAL: Attempt to connect to Blacklisted C2 Port {dst_port}. The destination IP is {dst_ip}.")
 
     # 2. Source Port Privilege Abuse Check
     # Flags the device using a privileged source port (<1024) to connect out.
     if src_port in outbound_priv_abuse:
-        score += 50 
-        reasons.append(f"[!!!] Privilege Abuse: Outbound connection using privileged source port {src_port}.")
+        score += 50
+        reasons.append(f"[!!!] Privilege Abuse: Outbound connection using privileged source port {src_port}. The destination IP is {dst_ip}.")
 
     return score, reasons
 
-    
+
 ####################################################################################################################API#########################################
 
 def query_abuseipdb(ip):
     global abuseipdb_request_count, abuseipdb_limit_reached_printed, abuseipdb_rate_limit
 
-    # NEW RATE LIMITING CHECK
+    # rate limiting check for abuseapi
     if abuseipdb_request_count >= abuseipdb_rate_limit:
         if not abuseipdb_limit_reached_printed:
             # Print the warning only once
             print(f"[!] WARNING: AbuseIPDB API rate limit ({abuseipdb_rate_limit}) reached. Skipping future API calls.")
             abuseipdb_limit_reached_printed = True
         return False
-    # END NEW RATE LIMITING CHECK
+    # end of the rate checking
 
     # Using snake_case for the local variable holding the key
     api_key = os.getenv("ABUSEIPDB_KEY")
     if not api_key:
         print("[!] ERROR: AbuseIPDB_KEY environment variable not set.")
         return False
-    
+
     url = "https://api.abuseipdb.com/api/v2/check"
     params = {"ipAddress": ip, "maxAgeInDays": 90}
     # Using the snake_case api_key here
@@ -358,7 +361,7 @@ def query_abuseipdb(ip):
     try:
         # Increment the counter for every successful request attempt
         abuseipdb_request_count += 1
-        
+
         response = requests.get(url, headers=headers, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -369,8 +372,8 @@ def query_abuseipdb(ip):
         abuse_cache[ip] = {
             "malicious": is_malicious,
             "last_alert": time.time(),
-            "source": "ABUSEIPDB" # Set source to AbuseIPDB
-         }
+            "source": "ABUSEIPDB"  # Set source to AbuseIPDB
+        }
         save_cache(abuse_cache)
 
         return is_malicious
@@ -378,12 +381,13 @@ def query_abuseipdb(ip):
 
     except requests.RequestException as e:
         # Decrement on true HTTP error or request failure so the count is more accurate
-        # but only if the error is NOT the 429 rate limit error which should be handled 
+        # but only if the error is NOT the 429 rate limit error which should be handled
         # by the global counter above on future calls.
         if '429 Client Error' not in str(e):
-             abuseipdb_request_count -= 1
+            abuseipdb_request_count -= 1
         print(f"[!] Error querying AbuseIPDB for {ip}: {e}")
         return False
+
 
 ###############################################################################
 def check_ip_in_whitelist(src_ip: str, dst_port: int) -> bool:
@@ -391,6 +395,3 @@ def check_ip_in_whitelist(src_ip: str, dst_port: int) -> bool:
     if dst_port in ics_port_whitelist:
         return src_ip in ics_port_whitelist[dst_port]
     return False
-
-
-
