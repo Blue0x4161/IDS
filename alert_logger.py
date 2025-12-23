@@ -1,4 +1,4 @@
-#This code was initially generated with the assistance of an AI tool and later reviewed, refactored, and adapted by me.
+#IMPORTANT NOTE: Dear professor Malik Alessa, this code was initially generated with the assistance of an AI tool and later reviewed, refactored, and adapted by me.
 
 import json
 import os
