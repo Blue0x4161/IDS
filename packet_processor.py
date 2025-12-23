@@ -21,7 +21,7 @@ from loaders import (
 
 
 abuseipdb_rate_limit = 1000
-abuseipdb_request_count = 0 #To limit the api requests we only have 1000 requests per day.
+abuseipdb_request_count = 0
 abuseipdb_limit_reached_printed = False  # Flag to print the warning only once
 
 alert_threshold = 1
