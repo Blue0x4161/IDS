@@ -1,4 +1,4 @@
-#  IoT & ICS Host-Based Intrusion Detection System (IoT-HIDS)
+#  IoT Host-Based Intrusion Detection System (IoT-HIDS)
 
 A lightweight **host-based Intrusion Detection System (IDS)** built for monitoring network traffic in **Industrial Control Systems (ICS)** and **IoT devices**.
 
