@@ -19,9 +19,9 @@ from loaders import (
     load_high_risk_ports
 )
 
-# to limit the api requests
+
 abuseipdb_rate_limit = 1000
-abuseipdb_request_count = 999
+abuseipdb_request_count = 0 #To limit the api requests we only have 1000 requests per day.
 abuseipdb_limit_reached_printed = False  # Flag to print the warning only once
 
 alert_threshold = 1
@@ -41,7 +41,7 @@ DEFAULT_CACHE_ENTRY = {
 
 
 
-# To get the IP address
+
 def get_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -51,7 +51,7 @@ def get_ipv4():
         s.close()
 
 
-# To get direction
+
 def get_direction(src_ip, my_ip):
     return "OUTBOUND" if src_ip == my_ip else "INBOUND"
 
@@ -78,10 +78,10 @@ def extract_features(pkt):
     src_port = -1
     dst_port = -1
     connection_state: ConnectionState = "UNKNOWN"
-    # print("I'm in extract")
+    # print("I'm in extract features func.")
 
     if TCP in pkt:
-        # print("hmmm is there tcp?")
+        # print("TCP was found in the packet")
         tcp_layer = pkt[TCP]
         src_port = tcp_layer.sport
         dst_port = tcp_layer.dport
@@ -94,13 +94,13 @@ def extract_features(pkt):
             is_rst_set=bool(flags & 0x04)
         )
     elif UDP in pkt:
-        # print("hmmm is there udp?")
+        # print("In UDO")
         udp_layer = pkt[UDP]
         src_port = udp_layer.sport
         dst_port = udp_layer.dport
-        # connection_state remains UNKNOWN for UDP
+        # connection_state remains UNKNOWN for UDP 
 
-    # Return the extracted feature tuple
+    
     return src_ip, dst_ip, src_port, dst_port, connection_state
 
 
@@ -109,6 +109,7 @@ ConnectionState = Literal["NEW", "ESTABLISHED", "FINISHING", "UNKNOWN"]
 
 
 def determine_connection_state(
+    #print("I'm in determine_connection_state")
         is_syn_set: bool,
         is_ack_set: bool,
         is_fin_set: bool = False,
@@ -132,7 +133,7 @@ def process_packet(pkt, malicious_ips):
     packet_score = 0
     packet_reasons = []
     # print("I'm in process packet")
-    # 1. Extract features
+   
     src_ip, dst_ip, src_port, dst_port, connection_state = extract_features(pkt)
 
     if src_ip == "0.0.0.0":
@@ -151,7 +152,7 @@ def process_packet(pkt, malicious_ips):
 
     direction = get_direction(src_ip, my_ip)
 
-    # 2. IP Reputation Check (Source for INBOUND, Destination for OUTBOUND)
+    # IP Reputation Check (Source for INBOUND, Destination for OUTBOUND)
     # this logic ensures that 'my_ip' is never the subject of the reputation check.
     ip_to_check = src_ip if direction == "INBOUND" else dst_ip
 
@@ -159,7 +160,7 @@ def process_packet(pkt, malicious_ips):
     packet_score += ip_score
     packet_reasons.extend(ip_reasons)
 
-    # 3. Port Checks (only if a transport layer exists)
+    # Port Checks (only if a transport layer exists)
     if src_port != -1:
         port_score = 0
         port_reasons = []
@@ -241,10 +242,10 @@ def check_ip_reputation(
     reasons = []
     now = time.time()
 
-    # 0. Initialize Cache Entry
+   
     cache_entry = abuse_cache.setdefault(ip_to_check, dict(DEFAULT_CACHE_ENTRY))
 
-    # 1. Cache Hit Check (Rate-Limited Alert)
+    
     if cache_entry["malicious"] is True:
         if now - cache_entry["last_alert"] > alert_window:
             score += 70
@@ -254,14 +255,14 @@ def check_ip_reputation(
             reasons.append(f"[INFO] Malicious IP ({ip_to_check}) hit suppressed by rate limit.")
         return score, reasons
 
-    # 2. Local IOC Blacklist Check
+    
     if ip_to_check in malicious_ips:
         cache_entry.update({"malicious": True, "source": "LOCAL_IOC", "last_alert": now})
         score += 70
         reasons.append(f"[!!!] CRITICAL: IP matched local IOC blacklist ({ip_to_check})")
         return score, reasons
 
-    # 3. External Query
+   
     if query_abuseipdb(ip_to_check):
         cache_entry.update({"malicious": True, "source": "ABUSEIPDB", "last_alert": now})
         score += 70
@@ -282,7 +283,7 @@ def check_ports_inbound(
     score = 0
     reasons = []
 
-    # 1. CRITICAL ICS Whitelist (Unauthorized Access)
+    # CRITICAL ICS Whitelist (Unauthorized Access)
     if dst_port in ics_port_whitelist:
         if not check_ip_in_whitelist(src_ip, dst_port):
             score += 100  # Highest score - ICS breach
@@ -291,12 +292,12 @@ def check_ports_inbound(
         reasons.append(f"[CLEAN] ICS Whitelist Match: Authorized traffic on port {dst_port}.")
         return score, reasons
 
-    # 2. Destination Port Blacklist (Exploitation/Backdoors)
+    # Destination Port Blacklist (Exploitation/Backdoors)
     if dst_port in high_risk_ports:
         score += 50
         reasons.append(f"[!!!] High-Risk Destination Port: {dst_port} → {high_risk_ports[dst_port]} from {src_ip}. ")
 
-    # 3. Source Port Spoofing (State Aware)
+    # Source Port Spoofing (State Aware)
     # Only flag this if it's a NEW connection attempt (i.e., not a legitimate reply)
     if src_port in inbound_spoofing and connection_state == 'NEW':
         score += 40
@@ -315,12 +316,12 @@ def check_ports_outbound(
     score = 0
     reasons = []
 
-    # 1. Destination Blacklist Check (C2 Detection)
+    # Destination Blacklist Check (C2 Detection)
     if dst_port in outbound_blacklist:
-        score += 70  # High score for C2
+        score += 70  
         reasons.append(f"[!!!] CRITICAL: Attempt to connect to Blacklisted C2 Port {dst_port}. The destination IP is {dst_ip}.")
 
-    # 2. Source Port Privilege Abuse Check
+    # Source Port Privilege Abuse Check
     # Flags the device using a privileged source port (<1024) to connect out.
     if src_port in outbound_priv_abuse:
         score += 50
@@ -334,10 +335,10 @@ def check_ports_outbound(
 def query_abuseipdb(ip):
     global abuseipdb_request_count, abuseipdb_limit_reached_printed, abuseipdb_rate_limit
 
-    # rate limiting check for abuseapi
+    
     if abuseipdb_request_count >= abuseipdb_rate_limit:
         if not abuseipdb_limit_reached_printed:
-            # Print the warning only once
+            
             print(f"[!] WARNING: AbuseIPDB API rate limit ({abuseipdb_rate_limit}) reached. Skipping future API calls.")
             abuseipdb_limit_reached_printed = True
         return False
@@ -355,7 +356,7 @@ def query_abuseipdb(ip):
     headers = {"Key": api_key, "Accept": "application/json"}
 
     try:
-        # Increment the counter for every successful request attempt
+        
         abuseipdb_request_count += 1
 
         response = requests.get(url, headers=headers, params=params, timeout=10)
@@ -364,11 +365,11 @@ def query_abuseipdb(ip):
         score = data["data"]["abuseConfidenceScore"]
         is_malicious = score >= 70
 
-        # Save result to cache
+       
         abuse_cache[ip] = {
             "malicious": is_malicious,
             "last_alert": time.time(),
-            "source": "ABUSEIPDB"  # Set source to AbuseIPDB
+            "source": "ABUSEIPDB"  
         }
         save_cache(abuse_cache)
 
