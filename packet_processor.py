@@ -21,7 +21,7 @@ from loaders import (
 
 
 abuseipdb_rate_limit = 1000
-abuseipdb_request_count = 0
+abuseipdb_request_count = 0  #to limit the api requests we can only do 1000 request per day
 abuseipdb_limit_reached_printed = False  # Flag to print the warning only once
 
 alert_threshold = 1
@@ -41,7 +41,7 @@ DEFAULT_CACHE_ENTRY = {
 
 
 
-
+#To get the IPv4 please note that we can't deal with IPv6 we can sniff it but we can't process it.
 def get_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -51,7 +51,7 @@ def get_ipv4():
         s.close()
 
 
-
+#This is to get the direction of the packet
 def get_direction(src_ip, my_ip):
     return "OUTBOUND" if src_ip == my_ip else "INBOUND"
 
@@ -66,7 +66,7 @@ def load_cache(path="abuse_cache.json"):
         return json.load(f)
 
 
-
+#The start of extracting features like IPs, port numbers in both TCP and UDP, as well as the flags in TCP packets
 
 def extract_features(pkt):
     if IP not in pkt:
@@ -244,8 +244,8 @@ def check_ip_reputation(
 
    
     cache_entry = abuse_cache.setdefault(ip_to_check, dict(DEFAULT_CACHE_ENTRY))
-
-    
+#about the scors: they're all 70 because that's what's in the project description but we can chnage them later if needed
+    #check the cache first
     if cache_entry["malicious"] is True:
         if now - cache_entry["last_alert"] > alert_window:
             score += 70
@@ -255,14 +255,14 @@ def check_ip_reputation(
             reasons.append(f"[INFO] Malicious IP ({ip_to_check}) hit suppressed by rate limit.")
         return score, reasons
 
-    
+    #check the local malicious ips
     if ip_to_check in malicious_ips:
         cache_entry.update({"malicious": True, "source": "LOCAL_IOC", "last_alert": now})
         score += 70
         reasons.append(f"[!!!] CRITICAL: IP matched local IOC blacklist ({ip_to_check})")
         return score, reasons
 
-   
+   #last check is the api check
     if query_abuseipdb(ip_to_check):
         cache_entry.update({"malicious": True, "source": "ABUSEIPDB", "last_alert": now})
         score += 70
@@ -283,7 +283,7 @@ def check_ports_inbound(
     score = 0
     reasons = []
 
-    # CRITICAL ICS Whitelist (Unauthorized Access)
+    # CRITICAL ICS Whitelist (Unauthorized Access) #note in a normal situation these won't be triggered but we can simulate an attack and test them
     if dst_port in ics_port_whitelist:
         if not check_ip_in_whitelist(src_ip, dst_port):
             score += 100  # Highest score - ICS breach
@@ -310,7 +310,7 @@ def check_ports_outbound(
         dst_ip: str,
         dst_port: int,
         src_port: int,
-        #connection_state: ConnectionState       #I might need it later who knows?
+        #connection_state: ConnectionState       #I might need it later who knows if we scaled the project to identify more attacks
 ) -> tuple[int, list[str]]:
     
     score = 0
@@ -318,7 +318,7 @@ def check_ports_outbound(
 
     # Destination Blacklist Check (C2 Detection)
     if dst_port in outbound_blacklist:
-        score += 70  
+        score += 70  #high score for c2
         reasons.append(f"[!!!] CRITICAL: Attempt to connect to Blacklisted C2 Port {dst_port}. The destination IP is {dst_ip}.")
 
     # Source Port Privilege Abuse Check
@@ -335,10 +335,10 @@ def check_ports_outbound(
 def query_abuseipdb(ip):
     global abuseipdb_request_count, abuseipdb_limit_reached_printed, abuseipdb_rate_limit
 
-    
+    #rate limiting check for abuseapi
     if abuseipdb_request_count >= abuseipdb_rate_limit:
         if not abuseipdb_limit_reached_printed:
-            
+            #print the warning only once
             print(f"[!] WARNING: AbuseIPDB API rate limit ({abuseipdb_rate_limit}) reached. Skipping future API calls.")
             abuseipdb_limit_reached_printed = True
         return False
@@ -356,7 +356,7 @@ def query_abuseipdb(ip):
     headers = {"Key": api_key, "Accept": "application/json"}
 
     try:
-        
+         # Increment the counter for every successful request attempt (request for the api)
         abuseipdb_request_count += 1
 
         response = requests.get(url, headers=headers, params=params, timeout=10)
