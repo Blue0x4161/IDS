@@ -200,7 +200,7 @@ def process_packet(pkt, malicious_ips):
     if packet_score >= alert_threshold and packet_reasons:
         print("\n=========================================== IDS ALERT ==========================================")
         print(f"Score reached: {packet_score}")
-        print(f"Protected Device: {my_ip}")
+        print(f"Monitored Host: {my_ip}")
 
         display_src_port = src_port if src_port != -1 else 'N/A'
         display_dst_port = dst_port if dst_port != -1 else 'N/A'
