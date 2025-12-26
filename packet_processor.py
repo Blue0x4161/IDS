@@ -20,7 +20,7 @@ from loaders import (
 )
 
 
-abuseipdb_rate_limit = 1000
+abuseipdb_rate_limit = 998
 abuseipdb_request_count = 0
 abuseipdb_limit_reached_printed = False  # Flag to print the warning only once
 
