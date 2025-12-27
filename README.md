@@ -54,7 +54,7 @@ Execute the main file, specifying your network interface (e.g., eth0, wlp4s0, en
 sudo python3 main.py
 ```
 
-### Configuration Tuning
+## Configuration Tuning
 
 To adjust the system's sensitivity, you can modify global constants in packet_processor.py:
 alert_threshold: The minimum combined score a packet must reach to trigger an alert.
@@ -71,4 +71,21 @@ Reasons:
  • [!!!] CRITICAL: Unauthorized access on ICS port 502 from 10.0.0.8.
 ===================================================
 ```
-The dashboard isn't done yet so the output is printed in terminal.
+
+## Dashboard Setup
+
+To monitor alerts via the web interface, follow these steps:
+
+1. **Install Dependencies**
+   Run the following command to install the required libraries:
+   
+```bash
+pip install scapy requests python-dotenv uvicorn fastapi
+```
+2. Run the Dashboard Navigate to the project directory and start the server
+
+```bash
+uvicorn app:app --reload
+```
+
+View in browser. Access the dashboard at: http://127.0.0.1:8000
